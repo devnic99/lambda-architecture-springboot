@@ -12,9 +12,15 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
+import org.bson.Document;
+
 @SpringBootApplication
 @EnableMongoRepositories
 public class LambdaApp implements CommandLineRunner {
+/*@SpringBootApplication
+@EnableMongoRepositories(basePackageClasses = {ItemRepository.class})
+public class LambdaApp {*/
+
 
 	@Autowired
 	ItemRepository itemRepo;

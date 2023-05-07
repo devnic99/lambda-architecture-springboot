@@ -1,26 +1,25 @@
 <html xmlns:th="https://www.thymeleaf.org">
-<body>
-
-	<div th:if="${message}">
-		<h2 th:text="${message}"/>
-	</div>
-
-	<div>
-		<form method="POST" enctype="multipart/form-data" action="/upload">
-			<table>
-				<tr><td>File to upload:</td><td><input type="file" name="file" /></td></tr>
-				<tr><td></td><td><input type="submit" value="Upload" /></td></tr>
-			</table>
-		</form>
-	</div>
-
-	<div>
-		<ul>
-			<li th:each="file : ${files}">
-				<a th:href="${file}" th:text="${file}" />
-			</li>
-		</ul>
-	</div>
-
+<body style="background-color: #b6d7b6; text-align: center; padding: 20px;">
+<div th:if="${message}">
+	<h2 th:text="${message}"/>
+</div>
+<div>
+	<form method="POST" enctype="multipart/form-data" action="/upload">
+		<table style="margin: auto;">
+			<tr><td><h1>File Upload</h1></td>
+			<tr><td style="text-align: left;"><input type="file" name="file" /></td></tr></tr>
+			<tr><td style="text-align: left;"><input type="submit" value="Upload" /></td></tr>
+		</table>
+	</form>
+</div>
+<br><br>
+<div style="margin-top: 20px;">
+	<ul style="list-style-type: none; padding: 0; margin: 0;">
+		<li th:each="file : ${files}" style="margin-bottom: 10px;">
+			<a th:href="${file}" th:text="${file}" style="text-decoration: none; color: #fff; background-color: #4b6a54; padding: 10px 20px; border-radius: 5px; box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);" />
+		</li>
+	</ul>
+</div>
 </body>
+
 </html>

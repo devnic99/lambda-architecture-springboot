@@ -6,12 +6,15 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.kennycason.kumo.CollisionMode;
@@ -21,10 +24,111 @@ import com.kennycason.kumo.bg.CircleBackground;
 import com.kennycason.kumo.font.scale.SqrtFontScalar;
 import com.kennycason.kumo.nlp.FrequencyAnalyzer;
 import com.kennycason.kumo.palette.ColorPalette;
+import de.hs_mannheim.informatik.lambda.model.WordCount;
+import de.hs_mannheim.informatik.lambda.repository.ItemRepository;
+
+import javax.annotation.Resource;
 
 @Controller
+@RequestMapping("/api")
+@CrossOrigin(origins = "http://localhost:8080")
 public class LambdaController {
+
+/*	@Autowired
+	private ItemRepository itemRepository;*/
+
 	public final static String CLOUD_PATH = "tagclouds/";
+
+	/*@GetMapping("/tutorials")
+	public ResponseEntity<List<WordCount>> getAllTutorials(@RequestParam(required = false) String title) {
+		try {
+			List<WordCount> tutorials = new ArrayList<WordCount>();
+
+			if (title == null)
+				itemRepository.findAll().forEach(tutorials::add);
+			else
+				itemRepository.findByTitleContaining(title).forEach(tutorials::add);
+
+			if (tutorials.isEmpty()) {
+				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+			}
+
+			return new ResponseEntity<>(tutorials, HttpStatus.OK);
+		} catch (Exception e) {
+			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	@GetMapping("/tutorials/{id}")
+	public ResponseEntity<WordCount> getTutorialById(@PathVariable("id") String id) {
+		Optional<WordCount> tutorialData = itemRepository.findById(id);
+
+		if (tutorialData.isPresent()) {
+			return new ResponseEntity<>(tutorialData.get(), HttpStatus.OK);
+		} else {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+	}
+
+	@PostMapping("/tutorials")
+	public ResponseEntity<WordCount> createTutorial(@RequestBody WordCount tutorial) {
+		try {
+			WordCount _tutorial = itemRepository.save(new WordCount(tutorial.getTitle(), tutorial.getDescription(), false));
+			return new ResponseEntity<>(_tutorial, HttpStatus.CREATED);
+		} catch (Exception e) {
+			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	@PutMapping("/tutorials/{id}")
+	public ResponseEntity<WordCount> updateTutorial(@PathVariable("id") String id, @RequestBody WordCount tutorial) {
+		Optional<WordCount> tutorialData = itemRepository.findById(id);
+
+		if (tutorialData.isPresent()) {
+			WordCount _tutorial = tutorialData.get();
+			_tutorial.setTitle(tutorial.getTitle());
+			_tutorial.setDescription(tutorial.getDescription());
+			_tutorial.setPublished(tutorial.isPublished());
+			return new ResponseEntity<>(itemRepository.save(_tutorial), HttpStatus.OK);
+		} else {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+	}
+
+	@DeleteMapping("/tutorials/{id}")
+	public ResponseEntity<HttpStatus> deleteTutorial(@PathVariable("id") String id) {
+		try {
+			itemRepository.deleteById(id);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		} catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	@DeleteMapping("/tutorials")
+	public ResponseEntity<HttpStatus> deleteAllTutorials() {
+		try {
+			itemRepository.deleteAll();
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		} catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	@GetMapping("/tutorials/published")
+	public ResponseEntity<List<WordCount>> findByPublished() {
+		try {
+			List<WordCount> tutorials = itemRepository.findByPublished(true);
+
+			if (tutorials.isEmpty()) {
+				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+			}
+			return new ResponseEntity<>(tutorials, HttpStatus.OK);
+		} catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}*/
+
 
 	@GetMapping("/upload")
 	public String forward(Model model) {
