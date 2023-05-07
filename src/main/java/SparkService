@@ -1,0 +1,27 @@
+import org.apache.spark.sql.SparkSession;
+
+//Diese Klasse kann als Service im Service-Layer verwendet werden
+//Greife auf die SparkSession-Instanz zu, um Spark-Jobs auszuführen
+
+
+public class SparkService {
+    private SparkSession sparkSession;
+
+
+    public SparkService() {
+        this.sparkSession = SparkSession.builder()
+            .master("local")
+            .appName("MongoSparkConnectorIntro")
+            .config("spark.mongodb.read.connection.uri", "mongodb://root:root@mongo/tagclouds.WordEntry?authSource=admin")
+            .config("spark.mongodb.write.connection.uri", "mongodb://root:root@mongo/tagclouds.WordEntry?authSource=admin")
+            .getOrCreate();
+    }
+
+    public SparkSession getSparkSession() {
+        return sparkSession;
+    }
+
+    public void setSparkSession(SparkSession sparkSession) {
+        this.sparkSession = sparkSession;
+    }
+}
