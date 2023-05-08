@@ -8,13 +8,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,7 +40,7 @@ import com.kennycason.kumo.font.scale.SqrtFontScalar;
 import com.kennycason.kumo.nlp.FrequencyAnalyzer;
 import com.kennycason.kumo.palette.ColorPalette;
 import de.hs_mannheim.informatik.lambda.model.WordCount;
-
+import java.nio.file.*;
 import javax.annotation.Resource;
 
 import scala.Tuple2;
@@ -51,7 +54,7 @@ public class LambdaController {
 	private ItemRepository itemRepository;*/
 
 	public final static String CLOUD_PATH = "tagclouds/";
-
+	public final static String RAW_PATH = "rawfiles/";
 	@Autowired
 	ItemRepository itemRepo;
 	
@@ -66,17 +69,29 @@ public class LambdaController {
 
 	@PostMapping("/upload")
 	public String handleFileUpload(@RequestParam("file") MultipartFile file, Model model) {
-
+		saveFile(file);
 		try {
 			model.addAttribute("message", "Datei erfolgreich hochgeladen: " + file.getOriginalFilename());
 			createTagCloud(file.getOriginalFilename(), new String(file.getBytes()));
 			model.addAttribute("files", listTagClouds());
+
 		} catch (IOException e) {
 			e.printStackTrace();
 			model.addAttribute("message", "Da gab es einen Fehler: " + e.getMessage());
 		}
 
 		return "upload";
+	}
+
+	private void saveFile(MultipartFile file) {
+		String filename = StringUtils.cleanPath(file.getOriginalFilename());
+		try {
+			Path uploadDir = Paths.get(RAW_PATH);
+			Path filePath = uploadDir.resolve(filename);
+			Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+		} catch (IOException e) {
+		}
+
 	}
 
 	@GetMapping("/uploadWord")
@@ -172,83 +187,7 @@ public class LambdaController {
 		return null;
 	}
 
-	/*@GetMapping("/tutorials")
-	public ResponseEntity<List<WordCount>> getAllTutorials(@RequestParam(required = false) String title) {
-		try {
-			List<WordCount> tutorials = new ArrayList<WordCount>();
-			if (title == null)
-				itemRepository.findAll().forEach(tutorials::add);
-			else
-				itemRepository.findByTitleContaining(title).forEach(tutorials::add);
-			if (tutorials.isEmpty()) {
-				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-			}
-			return new ResponseEntity<>(tutorials, HttpStatus.OK);
-		} catch (Exception e) {
-			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-	@GetMapping("/tutorials/{id}")
-	public ResponseEntity<WordCount> getTutorialById(@PathVariable("id") String id) {
-		Optional<WordCount> tutorialData = itemRepository.findById(id);
-		if (tutorialData.isPresent()) {
-			return new ResponseEntity<>(tutorialData.get(), HttpStatus.OK);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-		}
-	}
-	@PostMapping("/tutorials")
-	public ResponseEntity<WordCount> createTutorial(@RequestBody WordCount tutorial) {
-		try {
-			WordCount _tutorial = itemRepository.save(new WordCount(tutorial.getTitle(), tutorial.getDescription(), false));
-			return new ResponseEntity<>(_tutorial, HttpStatus.CREATED);
-		} catch (Exception e) {
-			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-	@PutMapping("/tutorials/{id}")
-	public ResponseEntity<WordCount> updateTutorial(@PathVariable("id") String id, @RequestBody WordCount tutorial) {
-		Optional<WordCount> tutorialData = itemRepository.findById(id);
-		if (tutorialData.isPresent()) {
-			WordCount _tutorial = tutorialData.get();
-			_tutorial.setTitle(tutorial.getTitle());
-			_tutorial.setDescription(tutorial.getDescription());
-			_tutorial.setPublished(tutorial.isPublished());
-			return new ResponseEntity<>(itemRepository.save(_tutorial), HttpStatus.OK);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-		}
-	}
-	@DeleteMapping("/tutorials/{id}")
-	public ResponseEntity<HttpStatus> deleteTutorial(@PathVariable("id") String id) {
-		try {
-			itemRepository.deleteById(id);
-			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-	@DeleteMapping("/tutorials")
-	public ResponseEntity<HttpStatus> deleteAllTutorials() {
-		try {
-			itemRepository.deleteAll();
-			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-	@GetMapping("/tutorials/published")
-	public ResponseEntity<List<WordCount>> findByPublished() {
-		try {
-			List<WordCount> tutorials = itemRepository.findByPublished(true);
-			if (tutorials.isEmpty()) {
-				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-			}
-			return new ResponseEntity<>(tutorials, HttpStatus.OK);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}*/
+	
 
 	private String[] listTagClouds() {
 		File[] files = new File(CLOUD_PATH).listFiles();

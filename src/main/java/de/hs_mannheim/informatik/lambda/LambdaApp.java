@@ -39,7 +39,7 @@ public class LambdaApp {*/
 
 	@Override
 	public void run(String... args) {
-		DocumentFrequency Beispielwort = new DocumentFrequency("Beispiel");
+		//DocumentFrequency Beispielwort = new DocumentFrequency("Beispiel");
 	}
 
 	
