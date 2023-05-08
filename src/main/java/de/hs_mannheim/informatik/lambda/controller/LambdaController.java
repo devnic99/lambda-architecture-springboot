@@ -5,6 +5,7 @@ import java.awt.Dimension;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,17 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import de.hs_mannheim.informatik.lambda.SparkSessionSingleton;
+import de.hs_mannheim.informatik.lambda.model.DocumentFrequency;
+import de.hs_mannheim.informatik.lambda.repository.ItemRepository;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
+import org.bson.Document;
+
 import com.kennycason.kumo.CollisionMode;
 import com.kennycason.kumo.WordCloud;
 import com.kennycason.kumo.WordFrequency;
@@ -25,15 +37,12 @@ import com.kennycason.kumo.font.scale.SqrtFontScalar;
 import com.kennycason.kumo.nlp.FrequencyAnalyzer;
 import com.kennycason.kumo.palette.ColorPalette;
 import de.hs_mannheim.informatik.lambda.model.WordCount;
-import de.hs_mannheim.informatik.lambda.repository.ItemRepository;
 
 import javax.annotation.Resource;
+
 import scala.Tuple2;
 
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
 
 @Controller
 public class LambdaController {
@@ -43,95 +52,9 @@ public class LambdaController {
 
 	public final static String CLOUD_PATH = "tagclouds/";
 
-	/*@GetMapping("/tutorials")
-	public ResponseEntity<List<WordCount>> getAllTutorials(@RequestParam(required = false) String title) {
-		try {
-			List<WordCount> tutorials = new ArrayList<WordCount>();
-
-			if (title == null)
-				itemRepository.findAll().forEach(tutorials::add);
-			else
-				itemRepository.findByTitleContaining(title).forEach(tutorials::add);
-
-			if (tutorials.isEmpty()) {
-				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-			}
-
-			return new ResponseEntity<>(tutorials, HttpStatus.OK);
-		} catch (Exception e) {
-			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-
-	@GetMapping("/tutorials/{id}")
-	public ResponseEntity<WordCount> getTutorialById(@PathVariable("id") String id) {
-		Optional<WordCount> tutorialData = itemRepository.findById(id);
-
-		if (tutorialData.isPresent()) {
-			return new ResponseEntity<>(tutorialData.get(), HttpStatus.OK);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-		}
-	}
-
-	@PostMapping("/tutorials")
-	public ResponseEntity<WordCount> createTutorial(@RequestBody WordCount tutorial) {
-		try {
-			WordCount _tutorial = itemRepository.save(new WordCount(tutorial.getTitle(), tutorial.getDescription(), false));
-			return new ResponseEntity<>(_tutorial, HttpStatus.CREATED);
-		} catch (Exception e) {
-			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-
-	@PutMapping("/tutorials/{id}")
-	public ResponseEntity<WordCount> updateTutorial(@PathVariable("id") String id, @RequestBody WordCount tutorial) {
-		Optional<WordCount> tutorialData = itemRepository.findById(id);
-
-		if (tutorialData.isPresent()) {
-			WordCount _tutorial = tutorialData.get();
-			_tutorial.setTitle(tutorial.getTitle());
-			_tutorial.setDescription(tutorial.getDescription());
-			_tutorial.setPublished(tutorial.isPublished());
-			return new ResponseEntity<>(itemRepository.save(_tutorial), HttpStatus.OK);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-		}
-	}
-
-	@DeleteMapping("/tutorials/{id}")
-	public ResponseEntity<HttpStatus> deleteTutorial(@PathVariable("id") String id) {
-		try {
-			itemRepository.deleteById(id);
-			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-
-	@DeleteMapping("/tutorials")
-	public ResponseEntity<HttpStatus> deleteAllTutorials() {
-		try {
-			itemRepository.deleteAll();
-			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-
-	@GetMapping("/tutorials/published")
-	public ResponseEntity<List<WordCount>> findByPublished() {
-		try {
-			List<WordCount> tutorials = itemRepository.findByPublished(true);
-
-			if (tutorials.isEmpty()) {
-				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-			}
-			return new ResponseEntity<>(tutorials, HttpStatus.OK);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}*/
+	@Autowired
+	ItemRepository itemRepo;
+	
 
 
 	@GetMapping("/upload")
@@ -158,17 +81,174 @@ public class LambdaController {
 
 	@GetMapping("/uploadWord")
 	public String handleWordUploadGet(Model model) {
-		model.addAttribute("words", listTagClouds());
-
-		return "uploadWord";
+		return "upload";
 	}
 
 	@PostMapping("/uploadWord")
-	public String handleWordUpload(@RequestParam("word") String word, Model model) {
-		
-		return word;
+    public String handleWordUpload(@RequestParam("word") String word, Model model) {
+        model.addAttribute("word", word);
+        return "upload";
+    }
+
+
+
+	@GetMapping("/dokumentenfrequenz")
+	public String handleDFCalculation(String searchWord, Model model) {
+
+		//Batch Job auslösen:
+
+		File[] files = new File(CLOUD_PATH).listFiles();
+		SparkSession spark = SparkSessionSingleton.getInstance();
+
+		// Create RDD from text files
+		JavaRDD<String> lines = spark.read().textFile(files.toString()).javaRDD();
+
+		// Split each line into words and create a flatMap of words
+		JavaRDD<String> words = lines.flatMap(
+				line -> Arrays.asList(line.split("\\W+")).iterator());
+
+		// Map each word to a tuple with the word as the key and 1 as the value
+		JavaPairRDD<String, Integer> pairs = words.mapToPair(
+				word -> new Tuple2<>(word, 1));
+
+		// Reduce by key to get the count of each word
+		JavaPairRDD<String, Integer> counts = pairs.reduceByKey((x, y) -> x+y);
+
+		// convert the JavaPairRDD to a DataFrame
+		JavaSparkContext jsc = new JavaSparkContext(spark.sparkContext());
+		JavaRDD<Document> documents = counts.map(tuple -> {
+			Document doc = new Document();
+			doc.append("word", tuple._1());
+			doc.append("count", tuple._2());
+			return doc;
+		});
+
+		Dataset<Row> ds =  spark.read().format("json").load(documents.toString());
+
+		// write the DataFrame to MongoDB
+		ds.write().format("mongodb").mode("overwrite").save();
+
+/*		List<Tuple2<String, Integer>> results = counts.collect();
+		results.forEach(System.out::println);*/
+
+		// Aus servinglayer database auslesen:
+		DocumentFrequency df = getDFByWord(searchWord);
+
+		// Befehl ähnlich zu dem
+		model.addAttribute("files", df);
+		return "dokumentenfrequenz";
 	}
 
+
+	// Get DF by word
+	public DocumentFrequency getDFByWord(String word) {
+		System.out.println("Getting document frequency by word: " + word);
+		DocumentFrequency df = itemRepo.findItemByName(word);
+		return df;
+		//System.out.println(getWordDetails(item));
+	}
+
+	// Show whole DF
+	public List<DocumentFrequency> showWholeDF() {
+		System.out.println("Getting the whole document frequency");
+		List<DocumentFrequency> wholeDF = itemRepo.findAll();
+		return wholeDF;
+		//itemRepo.findAll().forEach(item -> System.out.println(getWordDetails(item)));
+	}
+
+	// Print details in readable form
+	public String getWordDetails(DocumentFrequency documentFrequency) {
+
+		System.out.println(
+				"Word: " + documentFrequency.getWord() +
+						", \nQuantity: " + documentFrequency.getQuantity()
+		);
+
+		return "";
+	}
+
+	// Start Spark Batch Job to calculate DF
+	public DocumentFrequency calculateDF() {
+		return null;
+	}
+
+	/*@GetMapping("/tutorials")
+	public ResponseEntity<List<WordCount>> getAllTutorials(@RequestParam(required = false) String title) {
+		try {
+			List<WordCount> tutorials = new ArrayList<WordCount>();
+			if (title == null)
+				itemRepository.findAll().forEach(tutorials::add);
+			else
+				itemRepository.findByTitleContaining(title).forEach(tutorials::add);
+			if (tutorials.isEmpty()) {
+				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+			}
+			return new ResponseEntity<>(tutorials, HttpStatus.OK);
+		} catch (Exception e) {
+			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+	@GetMapping("/tutorials/{id}")
+	public ResponseEntity<WordCount> getTutorialById(@PathVariable("id") String id) {
+		Optional<WordCount> tutorialData = itemRepository.findById(id);
+		if (tutorialData.isPresent()) {
+			return new ResponseEntity<>(tutorialData.get(), HttpStatus.OK);
+		} else {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+	}
+	@PostMapping("/tutorials")
+	public ResponseEntity<WordCount> createTutorial(@RequestBody WordCount tutorial) {
+		try {
+			WordCount _tutorial = itemRepository.save(new WordCount(tutorial.getTitle(), tutorial.getDescription(), false));
+			return new ResponseEntity<>(_tutorial, HttpStatus.CREATED);
+		} catch (Exception e) {
+			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+	@PutMapping("/tutorials/{id}")
+	public ResponseEntity<WordCount> updateTutorial(@PathVariable("id") String id, @RequestBody WordCount tutorial) {
+		Optional<WordCount> tutorialData = itemRepository.findById(id);
+		if (tutorialData.isPresent()) {
+			WordCount _tutorial = tutorialData.get();
+			_tutorial.setTitle(tutorial.getTitle());
+			_tutorial.setDescription(tutorial.getDescription());
+			_tutorial.setPublished(tutorial.isPublished());
+			return new ResponseEntity<>(itemRepository.save(_tutorial), HttpStatus.OK);
+		} else {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+	}
+	@DeleteMapping("/tutorials/{id}")
+	public ResponseEntity<HttpStatus> deleteTutorial(@PathVariable("id") String id) {
+		try {
+			itemRepository.deleteById(id);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		} catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+	@DeleteMapping("/tutorials")
+	public ResponseEntity<HttpStatus> deleteAllTutorials() {
+		try {
+			itemRepository.deleteAll();
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		} catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+	@GetMapping("/tutorials/published")
+	public ResponseEntity<List<WordCount>> findByPublished() {
+		try {
+			List<WordCount> tutorials = itemRepository.findByPublished(true);
+			if (tutorials.isEmpty()) {
+				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+			}
+			return new ResponseEntity<>(tutorials, HttpStatus.OK);
+		} catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}*/
 
 	private String[] listTagClouds() {
 		File[] files = new File(CLOUD_PATH).listFiles();
