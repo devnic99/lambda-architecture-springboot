@@ -4,7 +4,9 @@ import org.apache.spark.sql.SparkSession;
 
 public class SparkSessionSingleton {
     private static transient SparkSession instance = null;
-    public SparkSessionSingleton() {}
+
+    public SparkSessionSingleton() {
+    }
 
     public static SparkSession getInstance() {
         if (instance == null) {
