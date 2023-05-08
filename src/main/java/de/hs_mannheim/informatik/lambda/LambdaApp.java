@@ -34,35 +34,7 @@ public class LambdaApp {*/
 	@Override
 	public void run(String... args) {
 
-		System.out.println("-------------CREATE GROCERY ITEMS-------------------------------\n");
-
-		createGroceryItems();
-
-		System.out.println("\n----------------SHOW ALL GROCERY ITEMS---------------------------\n");
-
-		showAllGroceryItems();
-
-		System.out.println("\n--------------GET ITEM BY NAME-----------------------------------\n");
-
-		getGroceryItemByName("Whole Wheat Biscuit");
-
-		System.out.println("\n-----------GET ITEMS BY CATEGORY---------------------------------\n");
-
-		getItemsByCategory("millets");
-
-		System.out.println("\n-----------UPDATE CATEGORY NAME OF SNACKS CATEGORY----------------\n");
-
-		updateCategoryName("snacks");
-
-		System.out.println("\n----------DELETE A GROCERY ITEM----------------------------------\n");
-
-		deleteGroceryItem("Kodo Millet");
-
-		System.out.println("\n------------FINAL COUNT OF GROCERY ITEMS-------------------------\n");
-
-		findCountOfGroceryItems();
-
-		System.out.println("\n-------------------THANK YOU---------------------------");
+		
 
 	}
 

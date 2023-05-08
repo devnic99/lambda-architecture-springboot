@@ -28,10 +28,14 @@ import de.hs_mannheim.informatik.lambda.model.WordCount;
 import de.hs_mannheim.informatik.lambda.repository.ItemRepository;
 
 import javax.annotation.Resource;
+import scala.Tuple2;
+
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
 
 @Controller
-@RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:8080")
 public class LambdaController {
 
 /*	@Autowired
@@ -151,6 +155,20 @@ public class LambdaController {
 
 		return "upload";
 	}
+
+	@GetMapping("/uploadWord")
+	public String handleWordUploadGet(Model model) {
+		model.addAttribute("words", listTagClouds());
+
+		return "uploadWord";
+	}
+
+	@PostMapping("/uploadWord")
+	public String handleWordUpload(@RequestParam("word") String word, Model model) {
+		
+		return word;
+	}
+
 
 	private String[] listTagClouds() {
 		File[] files = new File(CLOUD_PATH).listFiles();
