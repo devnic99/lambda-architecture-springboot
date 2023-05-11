@@ -28,24 +28,24 @@ public class LambdaApp {*/
 
 
 	public static void main(String[] args) {
-		SparkSession spark = SparkSessionSingleton.getInstance();
+		//SparkSession spark = SparkSessionSingleton.getInstance();
 
 		SpringApplication.run(LambdaApp.class, args);
 
 		System.out.println("Ausführungsort: " + new File(".").getAbsolutePath());
 
-		spark.stop();
+/*		spark.stop();
 
-		//SparkConf conf = new SparkConf().setAppName("wc").setMaster("local[4]");
-		//JavaSparkContext sc = new JavaSparkContext(conf);
+		SparkConf conf = new SparkConf().setAppName("wc").setMaster("local[4]");
+		JavaSparkContext sc = new JavaSparkContext(conf);
 
-//		SparkSession spark = SparkSession
-//				.builder()
-//				.master("local")
-//				.appName("wc")
-//				.config("spark.mongodb.input.uri", "mongodb://127.0.0.1/servinglayer.df")
-//				.config("spark.mongodb.output.uri", "mongodb://127.0.0.1/servinglayer.df")
-//				.getOrCreate();
+		SparkSession spark = SparkSession
+				.builder()
+				.master("local")
+				.appName("wc")
+				.config("spark.mongodb.input.uri", "mongodb://127.0.0.1/servinglayer.df")
+				.config("spark.mongodb.output.uri", "mongodb://127.0.0.1/servinglayer.df")
+				.getOrCreate();*/
 
 
 

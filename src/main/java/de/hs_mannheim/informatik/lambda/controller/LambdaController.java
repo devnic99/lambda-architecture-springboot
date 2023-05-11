@@ -4,19 +4,15 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
-import de.hs_mannheim.informatik.lambda.SparkSessionSingleton;
+//import de.hs_mannheim.informatik.lambda.SparkSessionSingleton;
 import de.hs_mannheim.informatik.lambda.model.DocumentFrequency;
 import de.hs_mannheim.informatik.lambda.repository.ItemRepository;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.*;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -32,6 +28,17 @@ import com.kennycason.kumo.font.scale.SqrtFontScalar;
 import com.kennycason.kumo.nlp.FrequencyAnalyzer;
 import com.kennycason.kumo.palette.ColorPalette;
 import scala.Tuple2;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.util.StringUtils;
+import java.nio.file.*;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
 
 @Controller
 public class LambdaController {
@@ -40,6 +47,8 @@ public class LambdaController {
 	ItemRepository itemRepo;
 
 	public final static String CLOUD_PATH = "tagclouds/";
+
+	public final static String RAW_PATH = "rawfiles/";
 
 	@GetMapping("/upload")
 	public String forward(Model model) {
@@ -50,8 +59,8 @@ public class LambdaController {
 
 	@PostMapping("/upload")
 	public String handleFileUpload(@RequestParam("file") MultipartFile file, Model model) {
-
 		try {
+			saveFile(file);
 			model.addAttribute("message", "Datei erfolgreich hochgeladen: " + file.getOriginalFilename());
 			createTagCloud(file.getOriginalFilename(), new String(file.getBytes()));
 			model.addAttribute("files", listTagClouds());
@@ -64,6 +73,39 @@ public class LambdaController {
 	}
 
 	@GetMapping("/dokumentenfrequenz")
+	public String forwardToDf(Model model) {
+		/*try {
+			model.addAttribute("message", "Dokumentenfrequenz erfolgreich berechnet");
+			//Map<String, Integer> dfList = calculateDF();
+			calculateDF();
+
+		} catch (IOException e) {
+			e.printStackTrace();
+			model.addAttribute("message", "Da gab es einen Fehler: " + e.getMessage());
+		}*/
+
+		model.addAttribute("message", "Dokumentenfrequenz erfolgreich berechnet");
+		//Map<String, Integer> dfList = calculateDF();
+		calculateDF();
+
+		return "dokumentenfrequenz";
+	}
+
+
+
+
+	@PostMapping("/uploadWord")
+	public String handleWordUpload(@RequestParam("word") String word, Model model) {
+		model.addAttribute("word", word);
+		return "upload";
+	}
+
+	@GetMapping("/uploadWord")
+	public String handleWordUploadGet(Model model) {
+		return "upload";
+	}
+
+	/*@GetMapping("/dokumentenfrequenz")
 	public String handleDFCalculation(String searchWord, Model model) {
 
 		//Batch Job auslösen:
@@ -72,11 +114,11 @@ public class LambdaController {
 		SparkSession spark = SparkSessionSingleton.getInstance();
 
 		// Create RDD from text files
-		JavaRDD<String> lines = spark.textFile(files).javaRDD();
+		//JavaRDD<String> lines = spark.textFile(files).javaRDD();
 
 		// Split each line into words and create a flatMap of words
-		JavaRDD<String> words = lines.flatMap(
-				line -> Arrays.asList(line.split("\\W+")).iterator());
+		//JavaRDD<String> words = lines.flatMap(
+				//line -> Arrays.asList(line.split("\\W+")).iterator());
 
 		// Map each word to a tuple with the word as the key and 1 as the value
 		JavaPairRDD<String, Integer> pairs = words.mapToPair(
@@ -94,13 +136,13 @@ public class LambdaController {
 			return doc;
 		});
 
-		Dataset<Row> ds =  spark.read().format("json").load(documents);
+		//Dataset<Row> ds =  spark.read().format("json").load(documents);
 
 		// write the DataFrame to MongoDB
 		ds.write().format("mongodb").mode("overwrite").save();
 
-/*		List<Tuple2<String, Integer>> results = counts.collect();
-		results.forEach(System.out::println);*/
+*//*		List<Tuple2<String, Integer>> results = counts.collect();
+		results.forEach(System.out::println);*//*
 
 		// Aus servinglayer database auslesen:
 		DocumentFrequency df = getDFByWord(searchWord);
@@ -108,7 +150,7 @@ public class LambdaController {
 		// Befehl ähnlich zu dem
 		model.addAttribute("files", df);
 		return "dokumentenfrequenz";
-	}
+	}*/
 
 /*	@PostMapping("/dokumentenfrequenz")
 	public String handleDFCalculation2(@RequestParam("file") MultipartFile file, Model model) {
@@ -125,7 +167,16 @@ public class LambdaController {
 		return "dokumentenfrequenz";
 	}*/
 
+	private void saveFile(MultipartFile file) {
+		String filename = StringUtils.cleanPath(file.getOriginalFilename());
+		try {
+			Path uploadDir = Paths.get(RAW_PATH);
+			Path filePath = uploadDir.resolve(filename);
+			Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+		} catch (IOException e) {
+		}
 
+	}
 
 	private String[] listTagClouds() {
 		File[] files = new File(CLOUD_PATH).listFiles();
@@ -188,98 +239,151 @@ public class LambdaController {
 	}
 
 	// Start Spark Batch Job to calculate DF
-	public DocumentFrequency calculateDF() {
+	public void calculateDF() {
+		System.out.println("calculateDF wird ausgeführt");
+		SparkConf conf = new SparkConf().setAppName("wc").setMaster("local[4]");
+		JavaSparkContext sc = new JavaSparkContext(conf);
 
-	}
+		JavaRDD<String> tokens = sc.textFile("Lambda-Architecture/rawfiles/loremipsum.txt").flatMap(
+				s -> Arrays.asList(s.split("\\W+")).iterator());
 
-	/*@GetMapping("/tutorials")
-	public ResponseEntity<List<WordCount>> getAllTutorials(@RequestParam(required = false) String title) {
-		try {
-			List<WordCount> tutorials = new ArrayList<WordCount>();
+		JavaPairRDD<String, Integer> counts = tokens.mapToPair(
+				token -> new Tuple2<>(token, 1)).reduceByKey((x,y) -> x+y);
 
-			if (title == null)
-				itemRepository.findAll().forEach(tutorials::add);
-			else
-				itemRepository.findByTitleContaining(title).forEach(tutorials::add);
+		List<Tuple2<String, Integer>> results = counts.collect();
+		results.forEach(System.out::println);
 
-			if (tutorials.isEmpty()) {
-				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-			}
+		sc.close();
 
-			return new ResponseEntity<>(tutorials, HttpStatus.OK);
-		} catch (Exception e) {
-			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+		// Batch Job auslösen:
+		/*SparkSession spark = SparkSessionSingleton.getInstance();
+		String dir = "Lambda-Architecture/rawfiles/*";
+
+		SparkConf conf = new SparkConf().setAppName("wc").setMaster("local[4]");
+		JavaSparkContext sc = new JavaSparkContext(conf);
+
+		JavaRDD<String> tokens = sc.textFile("Lambda-Architecture/rawfiles/loremipsum.txt").flatMap(
+				s -> Arrays.asList(s.split("\\W+")).iterator());
+
+		JavaPairRDD<String, Integer> counts = tokens.mapToPair(
+				token -> new Tuple2<>(token, 1)).reduceByKey((x,y) -> x+y);
+
+		List<Tuple2<String, Integer>> results = counts.collect();
+		results.forEach(System.out::println);
+
+		sc.close();*/
+
+/*
+		// read text files and create RDD of file contents
+		JavaRDD<String> fileContentsRDD = spark.sparkContext().textFile(dir, 2).toJavaRDD();
+
+		// split lines into words
+		JavaRDD<String> wordsRDD = fileContentsRDD.flatMap(line -> Arrays.asList(line.split("\\W+")).iterator());
+
+		// count occurrences of each word
+		JavaPairRDD<String, Integer> wordCountsRDD = wordsRDD
+				.mapToPair(word -> new Tuple2<>(word, 1))
+				.reduceByKey((count1, count2) -> count1 + count2);
+
+		List<Tuple2<String, Integer>> wordCounts = wordCountsRDD.collect();
+
+		wordCounts.forEach(tuple -> System.out.println(tuple._1 + ": " + tuple._2));
+*/
+
+
+
+/*
+		File[] files = new File(RAW_PATH).listFiles();
+		String[] filePaths = new String[files.length];
+		for (int i = 0; i < files.length; i++) {
+			filePaths[i] = files[i].getPath();
 		}
-	}
 
-	@GetMapping("/tutorials/{id}")
-	public ResponseEntity<WordCount> getTutorialById(@PathVariable("id") String id) {
-		Optional<WordCount> tutorialData = itemRepository.findById(id);
+		Dataset<Row> lines = spark.read().wholeTextFile(filePaths);
 
-		if (tutorialData.isPresent()) {
-			return new ResponseEntity<>(tutorialData.get(), HttpStatus.OK);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		// Einlesen des Texts aus der Datei und Aufspaltung in Wörter
+
+
+		for (String filePath : filePaths) {
+			DataFrame lines = spark.read().text(filePath);
+
+
+
+			Dataset<String> words = lines.flatMap(row -> Arrays.asList(row.getString(0).split("\\W+")).iterator(), Encoders.STRING());
+			Dataset<Tuple2<String, Integer>> counts = tokens.mapToPair(token -> new Tuple2<>(token, 1), Encoders.tuple(Encoders.STRING(), Encoders.INT()))
+					.groupByKey(pair -> pair._1())
+					.reduceGroups((x, y) -> new Tuple2<>(x._1(), x._2() + y._2()))
+					.map(row -> row._2(), Encoders.tuple(Encoders.STRING(), Encoders.INT()));
+
+
+			JavaRDD<String> tokens = sc.textFile("spark-it/src/main/resources/Faust.txt").flatMap(
+					s -> Arrays.asList(s.split("\\W+")).iterator());
 		}
+		// Create DataFrame representing the stream of input lines from connection to localhost:9999
+		Dataset<Row> lines = spark
+				.readStream()
+				.format("socket")
+				.option("host", "localhost")
+				.option("port", 9999)
+				.load();
+
+// Split the lines into words
+		Dataset<String> words = lines
+				.as(Encoders.STRING())
+				.flatMap((FlatMapFunction<String, String>) x -> Arrays.asList(x.split(" ")).iterator(), Encoders.STRING());
+
+// Generate running word count
+		Dataset<Row> wordCounts = words.groupBy("value").count();
+
+
+		JavaPairRDD<String, Integer> counts = tokens.mapToPair(
+				token -> new Tuple2<>(token, 1)).reduceByKey((x,y) -> x+y);
+
+		List<Tuple2<String, Integer>> results = counts.collect();
+		results.forEach(System.out::println);
+
+
+
+
+
+
+
+		// Create RDD from text files
+		JavaRDD<String> lines = spark.textFile(files).javaRDD();
+
+		// Split each line into words and create a flatMap of words
+		JavaRDD<String> words = lines.flatMap(
+		line -> Arrays.asList(line.split("\\W+")).iterator());
+
+		// Map each word to a tuple with the word as the key and 1 as the value
+		JavaPairRDD<String, Integer> pairs = words.mapToPair(
+				word -> new Tuple2<>(word, 1));
+
+		// Reduce by key to get the count of each word
+		JavaPairRDD<String, Integer> counts = pairs.reduceByKey((x, y) -> x+y);
+
+		// convert the JavaPairRDD to a DataFrame
+		JavaSparkContext jsc = new JavaSparkContext(spark.sparkContext());
+		JavaRDD<Document> documents = counts.map(tuple -> {
+			Document doc = new Document();
+			doc.append("word", tuple._1());
+			doc.append("count", tuple._2());
+			return doc;
+		});
+
+		Dataset<Row> ds =  spark.read().format("json").load(documents);
+
+		// write the DataFrame to MongoDB
+		ds.write().format("mongodb").mode("overwrite").save();
+
+		List<Tuple2<String, Integer>> results = counts.collect();
+		results.forEach(System.out::println);*//*
+
+		// Aus servinglayer database auslesen:
+		DocumentFrequency df = getDFByWord(searchWord);
+
+		Map<String, Integer> result = new HashMap<String, Integer>();
+		return result;
+		*/
 	}
-
-	@PostMapping("/tutorials")
-	public ResponseEntity<WordCount> createTutorial(@RequestBody WordCount tutorial) {
-		try {
-			WordCount _tutorial = itemRepository.save(new WordCount(tutorial.getTitle(), tutorial.getDescription(), false));
-			return new ResponseEntity<>(_tutorial, HttpStatus.CREATED);
-		} catch (Exception e) {
-			return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-
-	@PutMapping("/tutorials/{id}")
-	public ResponseEntity<WordCount> updateTutorial(@PathVariable("id") String id, @RequestBody WordCount tutorial) {
-		Optional<WordCount> tutorialData = itemRepository.findById(id);
-
-		if (tutorialData.isPresent()) {
-			WordCount _tutorial = tutorialData.get();
-			_tutorial.setTitle(tutorial.getTitle());
-			_tutorial.setDescription(tutorial.getDescription());
-			_tutorial.setPublished(tutorial.isPublished());
-			return new ResponseEntity<>(itemRepository.save(_tutorial), HttpStatus.OK);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-		}
-	}
-
-	@DeleteMapping("/tutorials/{id}")
-	public ResponseEntity<HttpStatus> deleteTutorial(@PathVariable("id") String id) {
-		try {
-			itemRepository.deleteById(id);
-			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-
-	@DeleteMapping("/tutorials")
-	public ResponseEntity<HttpStatus> deleteAllTutorials() {
-		try {
-			itemRepository.deleteAll();
-			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
-
-	@GetMapping("/tutorials/published")
-	public ResponseEntity<List<WordCount>> findByPublished() {
-		try {
-			List<WordCount> tutorials = itemRepository.findByPublished(true);
-
-			if (tutorials.isEmpty()) {
-				return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-			}
-			return new ResponseEntity<>(tutorials, HttpStatus.OK);
-		} catch (Exception e) {
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}*/
-
 }

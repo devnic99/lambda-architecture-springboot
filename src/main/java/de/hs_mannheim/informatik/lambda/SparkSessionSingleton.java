@@ -1,10 +1,11 @@
+/*
 package de.hs_mannheim.informatik.lambda;
 
 import org.apache.spark.sql.SparkSession;
 
 public class SparkSessionSingleton {
     private static transient SparkSession instance = null;
-    private SparkSessionSingleton() {}
+    public SparkSessionSingleton() {}
 
     public static SparkSession getInstance() {
         if (instance == null) {
@@ -19,3 +20,4 @@ public class SparkSessionSingleton {
         return instance;
     }
 }
+*/
